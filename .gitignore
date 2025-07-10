@@ -3,3 +3,6 @@
 
 # any downloaded book
 *.txt
+
+# pixi environments
+.pixi

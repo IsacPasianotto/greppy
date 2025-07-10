@@ -1,0 +1,12 @@
+[workspace]
+authors = ["IsacPasianotto <yh4mop12z@gmail.com>"]
+channels = ["conda-forge"]
+name = "greppy"
+platforms = ["linux-64"]
+version = "0.1.0"
+
+[tasks]
+
+[dependencies]
+python = ">=3.13.5,<3.14"
+rich = ">=14.0.0,<15"

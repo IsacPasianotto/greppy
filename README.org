@@ -5,3 +5,17 @@
 
 This repo contains the exam code for the course in /"Introduction to tools and methods for research in AI"/, done in A.A. 2024-2025 at the University of Trieste.
 
+
+* How to run the code
+
+The code is distributed with [[https://pixi.sh/latest/][pixi]] package manager, to set up the environemt you can either spawn a shell with
+
+#+begin_src bash
+  pixi shell
+#+end_src
+
+or launch the script with
+
+#+begin_src bash
+  pixi run python main.py
+#+end_src
