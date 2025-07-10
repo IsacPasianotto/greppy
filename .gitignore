@@ -1,0 +1,5 @@
+# pychache directories
+*/__pycache__/*
+
+# any downloaded book
+*.txt
