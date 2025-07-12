@@ -10,6 +10,14 @@ from utils.logger import setup_logger, static_logger
 from logging import Logger
 from argparse import ArgumentParser
 
+try:
+    from utils.search_cython import is_pattern_in_line_cy
+    CYTHON_AVAILABLE = True
+    static_logger.info("✓ Cython module loaded successfully. Using C-compiled functions")
+except ImportError as e:
+    static_logger.warning("✗ Cython module not available. Using pure Python implementation.")
+    static_logger.warning("Compile first with: python utils/compile.py build_ext --inplace")
+    CYTHON_AVAILABLE = False
 
 #
 # Methods
@@ -40,7 +48,10 @@ def is_pattern_in_line(
         pattern: str,
         ignore_case: bool = False
     ) -> bool:
-
+    """
+    Pure Python implementation of Boyer-Moore-Horspool algorithm
+    (fallback when Cython is not available)
+    """
     if ignore_case:
         line = line.lower()
         pattern = pattern.lower()
@@ -81,7 +92,6 @@ def is_pattern_in_line(
     return False
 
 
-
 def match_patterns_in_lines(
         lines: list[str],
         patterns: list[str],
@@ -92,9 +102,12 @@ def match_patterns_in_lines(
         pattern: {"occurrences": [], "counter": 0} for pattern in patterns
     }
 
+    # Choose the best available pattern matching function
+    pattern_func = is_pattern_in_line_cy if CYTHON_AVAILABLE else is_pattern_in_line
+
     for i, line in enumerate(lines, start=1):
         for pattern in patterns:
-            if is_pattern_in_line(line=line, pattern=pattern, ignore_case=ignore_case):
+            if pattern_func(line=line, pattern=pattern, ignore_case=ignore_case):
                 results[pattern]["occurrences"].append(i)
                 results[pattern]["counter"] = len(results[pattern]["occurrences"])
     return results
@@ -114,6 +127,12 @@ def main() -> None:
     except ValueError as e:
         logger.error(str(e))
         sys.exit(1)
+
+    # Log which implementation is being used
+    if CYTHON_AVAILABLE:
+        logger.info("Using Cython optimized pattern matching")
+    else:
+        logger.info("Using Python fallback pattern matching")
 
     results = match_patterns_in_lines(lines, args.patterns, ignore_case=args.ignore_case)
 

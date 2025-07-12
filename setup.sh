@@ -1,10 +1,19 @@
 #!/bin/bash
 
+GIT_ROOT=$(git rev-parse --show-toplevel)
+pushd $GIT_ROOT> /dev/null 
+
 # OUT_FILE="frankenstein.txt"
 # IN_URL="https://www.gutenberg.org/cache/epub/84/pg84.txt"
 OUT_FILE="divina_commedia.txt"
 IN_URL="https://www.gutenberg.org/cache/epub/1000/pg1000.txt"
 
+pixi run python utils/compile.py build_ext --inplace
+
+if [ -f "$OUT_FILE" ]; then
+    echo "Output file '$OUT_FILE' already exists. Exiting."
+    exit 0
+fi
 
 if command -v curl &> /dev/null; then
     curl -o "$OUT_FILE" "$IN_URL"
@@ -26,3 +35,5 @@ if ! command -v sponge &> /dev/null; then
 fi
 
 awk '{printf "%d. %s\n", NR, $0}' "$OUT_FILE" | sponge "$OUT_FILE"
+
+popd > /dev/null
