@@ -60,13 +60,29 @@ def match_patterns_in_lines(
         lines: list[str],
         patterns: list[str],
         ignore_case: bool = False
-    ) -> dict[str, list[int]]:
+    ) -> dict[str, dict[str, int | list[int]]]:
 
-    results: dict[str, list[int]] = {pattern: [] for pattern in patterns}
+    results: dict[str, dict[str, int | list[int]]] = {
+        pattern: {"occurrences": [], "counter": 0} for pattern in patterns
+    }
+
     for i, line in enumerate(lines, start=1):
         for pattern in patterns:
+            # perform a deep copy to compare later
+            snapshot: dict[str, dict[str, int | list[int]]] = {}
+            for p in results:
+                snapshot[p] = {
+                    "occurrences": results[p]["occurrences"].copy(),
+                    "counter": results[p]["counter"]
+                }
+
             if is_pattern_in_line(line=line, pattern=pattern, ignore_case=ignore_case):
-                results[pattern].append(i)
+                results[pattern]["occurrences"].append(i)
+
+            # compare snap with new results
+            if snapshot != results:
+                results[pattern]["counter"] = len(results[pattern]["occurrences"])
+
     return results
 
 #
@@ -88,9 +104,9 @@ def main() -> None:
     results = match_patterns_in_lines(lines, args.patterns, ignore_case=args.ignore_case)
 
     for pattern in args.patterns:
-        lines_found = results[pattern]
-        if lines_found:
-            logger.info(f"Pattern '{pattern}' found in lines: {lines_found}")
+        pattern_data = results[pattern]
+        if pattern_data["occurrences"]:
+            logger.info(f"Pattern '{pattern}' found {pattern_data['counter']} times in the file at lines: {pattern_data['occurrences']}")
         else:
             logger.info(f"Pattern '{pattern}' not found in the file.")
 
