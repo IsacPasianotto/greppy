@@ -1,0 +1,22 @@
+
+ Performance counter stats for 'python main.py -i -f divina_commedia.txt mezzo del cammin Dante Beatrice Virgilio This will not be found':
+
+            188.10 msec task-clock                       #    0.989 CPUs utilized             
+                 7      context-switches                 #   37.214 /sec                      
+                 5      cpu-migrations                   #   26.582 /sec                      
+             5,050      page-faults                      #   26.847 K/sec                     
+     2,271,014,107      instructions                     #    2.66  insn per cycle            
+       853,676,951      cycles                           #    4.538 GHz                       
+       408,034,132      branches                         #    2.169 G/sec                     
+         5,025,249      branch-misses                    #    1.23% of all branches           
+                        TopdownL1                 #     10.1 %  tma_backend_bound      
+                                                  #     14.7 %  tma_bad_speculation    
+                                                  #     26.9 %  tma_frontend_bound     
+                                                  #     48.3 %  tma_retiring           
+
+       0.190154517 seconds time elapsed
+
+       0.177612000 seconds user
+       0.011907000 seconds sys
+
+

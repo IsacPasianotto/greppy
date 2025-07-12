@@ -197,3 +197,37 @@ A more suitable approach is the [[https://en.wikipedia.org/wiki/Boyer%E2%80%93Mo
 +
      return False
 #+end_src
+
+
+
+
+*** Profiling the optimized code
+
+#+begin_src bash
+    pixi run python -m scalene \
+      --no-browser \
+      main.py -i -f divina_commedia.txt \
+      "mezzo del cammin" \
+      "Dante" "Beatrice" \
+      "Virgilio" \
+      "This will not be found"
+  mv profile.json profiling/optimized.json ; rm profile.html
+#+end_src
+
+
+#+begin_src bash
+  sudo pixi shell
+  perf stat python main.py\
+    -i -f divina_commedia.txt \
+    "mezzo del cammin" \
+    "Dante" "Beatrice" \
+    "Virgilio" \
+    "This will not be found" 2> profiling/optimized_perf
+#+end_src
+
+** Considerations
+
+The optimized code is way faster: 175ms, wihch is approximately 7.3 times faster. Loocking at the Scalene report, the most time consuming part of the code still the ~is_pattern_in line()~ method (74% of the whole time).
+Differently from the previous case where where almost all the time spent in the most relevant part of the code was an /if statement/ (36% of the time), in this case the majority of the time is spent computing the jump table.
+
+The perf report shows an huge increase in the number of branch misses, which raised up to 1.23%. The fact that this is 3 times more than the previous case is due to the fact that the algorithm is more complex and the branch predictor is not able to guess the right branch in some cases, hence it has to flush the pipeline and restart from scratch. Owever, the great improvment in the time saved thanks to the smarter implementation is worth the extra branch misses, which are still very low.
