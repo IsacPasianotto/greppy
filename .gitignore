@@ -10,3 +10,9 @@
 
 # any html file from Scalene
 *.html
+
+# Ouput from compilation
+build/*
+utils/*.c
+utils/*.html
+utils/*.so
