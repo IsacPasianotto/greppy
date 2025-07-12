@@ -8,5 +8,6 @@ version = "0.1.0"
 [tasks]
 
 [dependencies]
-python = ">=3.13.5,<3.14"
+python = ">=3.12.11,<3.13"
 rich = ">=14.0.0,<15"
+scalene = ">=1.5.41,<2"

@@ -6,3 +6,7 @@
 
 # pixi environments
 .pixi
+
+
+# any html file from Scalene
+*.html
