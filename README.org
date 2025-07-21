@@ -225,9 +225,34 @@ A more suitable approach is the [[https://en.wikipedia.org/wiki/Boyer%E2%80%93Mo
     "This will not be found" 2> profiling/optimized_perf
 #+end_src
 
+
 ** Considerations
 
 The optimized code is way faster: 175ms, wihch is approximately 7.3 times faster. Loocking at the Scalene report, the most time consuming part of the code still the ~is_pattern_in line()~ method (74% of the whole time).
 Differently from the previous case where where almost all the time spent in the most relevant part of the code was an /if statement/ (36% of the time), in this case the majority of the time is spent computing the jump table.
 
 The perf report shows an huge increase in the number of branch misses, which raised up to 1.23%. The fact that this is 3 times more than the previous case is due to the fact that the algorithm is more complex and the branch predictor is not able to guess the right branch in some cases, hence it has to flush the pipeline and restart from scratch. Owever, the great improvment in the time saved thanks to the smarter implementation is worth the extra branch misses, which are still very low.
+
+* Second optimization iteration
+
+To increase even further the performance, I also decided to re-implement the Boyer-Moore-Horspool algorithm using [[https://cython.org/][Cython]], which is a superset of Python that allows to write C-like code and compile it to C for better performance.
+
+/Observation/: The comparison between the Cython and the pure python implementation may not be considered fair, in the sense that the profilation of the cython code is done only running the pre-compiled code.
+For small projects like this where the overhall execution time is very low, the compilation time is not neglgible, just to have a rought idea, using the ~time~ command, we can see that the compilation time is around 0.9 seconds, which is not negligible for a small project like this, but it is still very low compared to the execution time of the code itself. However, I ignored this time in the profilation, since it is not part of the code execution but rather a one-time setup cost.
+
+#+begin_src bash
+    time  pixi run python utils/compile.py build_ext --inplace
+
+    # [ ... ]
+
+  real	0m0.896s
+  user	0m0.811s
+  sys	0m0.085s
+#+end_src
+
+
+** Profilation results:
+
+Analizing the Scalene report, we can se that the execution time is now 87ms, which menas that compiling the code has doubled the performace of the same code, arriving at a 14.6x speedup compared to the naive implementation.
+
+Almost the whole time is spent in the ~pattern_func~ function, which in this setup is the compiled one. The time spent is 73ms, the 84% of the whole time, which is a great result since that is the core of the algorithm. This means that all the remaining part of the code is almost negligible and, most important, does not introduce any significant slowdown.
