@@ -1,89 +1,95 @@
 #+title: Greppy: a trivial grep-like implementation in Python
 #+author: Isac Pasianotto
+#+toc: headlines 3
+
 
 * About
 
 This repo contains the exam code for the course in /"Introduction to tools and methods for research in AI"/, done in A.A. 2024-2025 at the University of Trieste.
 
+** Project description
 
-* How to run the code
+The aim of this exercise is to provide a small, ~grep~-inspired tool written in Python. The code, given an input file, will search for one or more patterns and return the line number where the pattern is found. The pattern search can be both case sensitive or insensitive.
+The only restriction about the input file is that it must be a text file, convertible to UTF-8 encoding, otherwise the code will raise an error.
 
-The code is distributed with [[https://pixi.sh/latest/][pixi]] package manager, to set up the environemt you can either spawn a shell with
+** How to run the code
+
+To ensure compatibility, the code has been distributed with the [[https://pixi.sh/latest/][pixi]] package manager. Having the ~pixi.toml~ and ~pixi.lock~ files is enought to reproduce an working environment to run the code.
+
+To run the code, assuming that ~pixi~ is already installed, you can alternatively spawn a shell wilt ~pixi shell~ or run the script directly with ~pixi run~:
 
 #+begin_src bash
   pixi shell
+  python3 main.py -f file.txt [-i] pattern1 [pattern2 ...]
 #+end_src
 
-or launch the script with
-
 #+begin_src bash
-  pixi run python main.py
+  pixi run main.py -f file.txt [-i] pattern1 [pattern2 ...]
 #+end_src
 
+where:
 
-* Development Branch: The optimization processes:
+ - ~file.txt~ is the input file to be searched, if omitted, the ~divina_commedia.txt~ file setted up by the ~Makefile~ will be used as default
+ - ~-i~ is an optional flag to enable case insensitive search
 
-I have used two tools for the code profiling: ~perf~ and [[https://github.com/plasma-umass/scalene][Scalene]].
-*/Disclaimer/* In order to have more meaningful results, before each profilation, run:
+** How to profile the code
+
+All the profiling results are stored in the ~profiling~ directory, and was generated using the following tools:
+
+- [[https://github.com/plasma-umass/scalene][Scalene]] profiler: tools by the Plasma group at the University of Massachusetts Amherst, which provides a detailed analysis of the code performance, including time and memory usage.
+- ~perf~ tool: a Linux profiling tool that provides detailed information about the performance of the code, including branch prediction misses, chace misses, and other low-level performance metrics.
+
+*Before every profilation*, I have tried to ensure that the code was run under the same condition, in order to have more meaningful and comparable results. In details, before every profiling I run the following commands:
 
 #+begin_src bash
-  sudo cpupower frequency-set -g performance  #Set the CPU governo  to avoid different frequencies
-  sudo sync   # flush filesystem buffers
-  sudo sysctl vm.drop_caches=3  # drop caches, 3=all: pagecache, dentries and inodes
+  # Set the CPU governor to not vary its frequency
+  sudo cpupower frequency-set -g performance
+  # Flush the filesystem buffers
+  sudo sync
+  # Clear the cache, 3=all: pagechace, dentries and inodes
+  sudo sysctl -w vm.drop_caches=3
 #+end_src
 
-** First naive implementation
-
-*** Profiling with Scalene
+The profiling results are obtained  by running the following:
 
 #+begin_src bash
-  pixi run python -m scalene \
+  export SETTING="naive" # or whathever
+
+  # scalene profiler
+  pixi run python3 -m scalene \
       --no-browser \
       main.py -i -f divina_commedia.txt \
       "mezzo del cammin" \
       "Dante" "Beatrice" \
       "Virgilio" \
       "This will not be found"
-  mv profile.json profiling/naive.json ; rm profile.html
-#+end_src
+  mv profile.json profiling/${SETTING}.json ; rm profile.html
 
-To see the results:
-
-#+begin_src bash
-  pixi run scalene --viewer
-#+end_src
-
-and select the file to analize.
-
-*** Profiling with perf
-
-To use per properly we need root privileges, hence:
-
-#+begin_src bash
+  # perf profiler, important: run this as root
   sudo pixi shell
-  perf stat python main.py \
-       -i -f divina_commedia.txt \
+  perf stat python3 main.py -i -f divina_commedia.txt \
       "mezzo del cammin" \
       "Dante" "Beatrice" \
       "Virgilio" \
-      "This will not be found" 2> profiling/naive_perf
+      "This will not be found" 2> profiling/${SETTING}_perf
 #+end_src
 
-*** Considerations
+* Implementation logbook
 
-Accoringnly to Scalene report, the program took *1.271s* to run. The memory usage is so unsignificant that is lower than the tool's treshold hence is not tracked.
+** First implementation: naïve algorithm
 
-Predictably, the most time consuming function is ~is_pattern_in_line()~ which took the /61%/ of the whole time, followed by ~match_patterns_in_lines()~ with the /25%/ of the time.
+*** Code description
 
-The second mentioned function just calls the first one repitetly with all possible combinations of patterns to search and lines, hence the real bottleneck is the first function:
+The first implementation uses a straightforward charachter-by-character comparison for each pattern in the input for each line of the file. This naive approach is simple to understand and implement, but has no optimization at all.
+
+The core pattern matching function is:
 
 #+begin_src python
-  def is_pattern_in_line(line, pattern, ignore_case=False):
+def is_pattern_in_line(line, pattern, ignore_case=False):
     if ignore_case:
         line = line.lower()
         pattern = pattern.lower()
 
-    # Naive pattern matching algorithm
     for i in range(len(line) - len(pattern) + 1):
         match = True
         for j in range(len(pattern)):
@@ -95,36 +101,24 @@ The second mentioned function just calls the first one repitetly with all possib
     return False
 #+end_src
 
+*** Profilation results:
 
-Surprisingly, the number of chache misses is exttremely low, only the 0.4% even if by design in the code there are a constant number of checks with /if statements/, also for counting the number of matches:
+- *Execution time*: 1.271 seconds
+- *Memory usage*: Negligible, under the Scalene trheshold.
+- *Top time-consuming functions*:
+  * ~is_pattern_in_line~: /61%/ of the overall time
+  * ~match_patterns_in_lines~: /25%/ of the time
+- *Branch misses*: /0.4%/
 
-#+begin_src python
-  for i, line in enumerate(lines, start=1):
-        for pattern in patterns:
-            # perform a deep copy to compare later
-            snapshot: dict[str, dict[str, int | list[int]]] = {}
-            for p in results:
-                snapshot[p] = {
-                    "occurrences": results[p]["occurrences"].copy(),
-                    "counter": results[p]["counter"]
-                }
+The profiling results show as expecterd that the majority of the time is spent in the function that checks character by charachter the occurency of a pattern in a line. The second most-time consuming function is ~match_patterns_in_lines~, which is a function that iterates over all the lines of the file and for all the patterns call the previous function.
 
-            if is_pattern_in_line(line=line, pattern=pattern, ignore_case=ignore_case):
-                results[pattern]["occurrences"].append(i)
+Surprisingly, the number of branch misses is very low, even if the algorithm is not optimized in the number of comparison with ~if~ statments. But this low number, rather than a sign of a well-written code, is due to the fact that the code is not so complex, and the CPU branch predictor is working wel, probably always guessing a non-matching branch.
 
-            # compare snap with new results
-            if snapshot != results:
-                results[pattern]["counter"] = len(results[pattern]["occurrences"])
-#+end_src
+** Second implementation: the development branch
 
+*** Updates description
 
-But this rather than a sign of a good code design, is due to the fact that the code is not very complex and the CPU branch prediction is workging well, probably always guessing a not-matching branch.
-
-** Optimization
-
-*** Remove useless deep copy and comparison
-
-Checking if the dictionary has changed to update the counter is absolutely useless (it was a failure attemp to stress the branch predictor), since the counter will always change if a new match is found.
+The first optimization was an obivious one; checking if the dictionary has changed to update the counter of matches is absolutely useless and avoidable (actually it was a failure attemp to stress the branch predictor with objects more complex than sequences of characters) since the counter will always chance if a new match is found.
 
 #+begin_src diff
        for i, line in enumerate(lines, start=1):
@@ -147,11 +141,7 @@ Checking if the dictionary has changed to update the counter is absolutely usele
 #+end_src
 
 
-*** Smarter Pattern Matching Algorithm
-
-As highlighted by the Scalene report, most of the time is spent in the ~is_pattern_in_line()~ method, which is not optimized at all since is a naive double nested loop which checks every single character in the line against the pattern.
-
-A more suitable approach is the [[https://en.wikipedia.org/wiki/Boyer%E2%80%93Moore%E2%80%93Horspool_algorithm][Boyer-Moore-Horspool]] algorithm, which will skip some characters in the line if it finds a mismatch, hence reducing the number of checks.
+As highlighted by the Scalene report, most of the time is spent in the not optimaze naive version of ~is_pattern_in_line()~. A more suitable approach is the [[https://en.wikipedia.org/wiki/Boyer%E2%80%93Moore%E2%80%93Horspool_algorithm][Boyer-Moore-Horspool]] algorithm, which will skip some characters in the line if it finds a mismatch, hence reducing the number of checks.
 
 #+begin_src diff
 -    # Naive pattern matching algorithm
@@ -165,80 +155,69 @@ A more suitable approach is the [[https://en.wikipedia.org/wiki/Boyer%E2%80%93Mo
 +    # Boyer-Moore-Horspool
 +    line_len: int = len(line)
 +    pattern_len: int = len(pattern)
-+
 +    if pattern_len == 0:
 +        return True
-+
 +    if pattern_len > line_len:
 +        return False
-+
-+    # jump table for bad character
 +    skip_table: dict[str, int] = {}
 +    for i in range(pattern_len - 1):
 +        skip_table[pattern[i]] = pattern_len - 1 - i
-+
-+    # Actual search
 +    i: int = pattern_len - 1
 +    while i < line_len:
 +        j: int = pattern_len - 1
 +        k: int = i
-+
-+        # Confronta dal fondo
 +        while j >= 0 and line[k] == pattern[j]:
 +            j -= 1
 +            k -= 1
-+
 +        if j < 0:
              return True
-+
-+        # Calcola il salto
 +        skip: int = skip_table.get(line[k], pattern_len)
 +        i += skip
-+
      return False
 #+end_src
 
+*** Profilation results
 
+- *Execution time*: /0175ms/ (~7.3x faster)
+- *Branch misses*: /1.23%/ (~3x more)
+- *Most time-consuming instruction*:
+  * ~is_pattern_in_line~: /74%/ of the overall time
 
+The profiling results higlight a significant improvment in the execuion, with a huge speedup. The two most intresting thing to notice are:
 
-*** Profiling the optimized code
+- Even if the ~is_pattern_in_line~ function still takes the majority of the overall time (even more than before), checking what instruction inside the function is the most impactful, we can see a difference with the previous implementation. Previously the more high percentange of time (36%) was spent in a /if-statment/ instruction. Instead, in this second case, the majority of time is spent in a computation instruction, getting the jump table.
 
-#+begin_src bash
-    pixi run python -m scalene \
-      --no-browser \
-      main.py -i -f divina_commedia.txt \
-      "mezzo del cammin" \
-      "Dante" "Beatrice" \
-      "Virgilio" \
-      "This will not be found"
-  mv profile.json profiling/optimized.json ; rm profile.html
-#+end_src
+- The second thing to notice is the fact that perf report shows an huge increase in the number of branch misses, which raised up to 1.23%, 3 times more than the previous case. Probably is due to the fact that the algorithm is more complex and the branch predictor is not able to guess the right branch in some cases, hence it has to flush the pipeline and restart from scratch. Owever, the great improvment in the time saved thanks to the smarter implementation is worth the extra branch misses, which are still very low.
 
+** Third implementation: the dev2 branch
 
-#+begin_src bash
-  sudo pixi shell
-  perf stat python main.py\
-    -i -f divina_commedia.txt \
-    "mezzo del cammin" \
-    "Dante" "Beatrice" \
-    "Virgilio" \
-    "This will not be found" 2> profiling/optimized_perf
-#+end_src
-
-
-** Considerations
-
-The optimized code is way faster: 175ms, wihch is approximately 7.3 times faster. Loocking at the Scalene report, the most time consuming part of the code still the ~is_pattern_in line()~ method (74% of the whole time).
-Differently from the previous case where where almost all the time spent in the most relevant part of the code was an /if statement/ (36% of the time), in this case the majority of the time is spent computing the jump table.
-
-The perf report shows an huge increase in the number of branch misses, which raised up to 1.23%. The fact that this is 3 times more than the previous case is due to the fact that the algorithm is more complex and the branch predictor is not able to guess the right branch in some cases, hence it has to flush the pipeline and restart from scratch. Owever, the great improvment in the time saved thanks to the smarter implementation is worth the extra branch misses, which are still very low.
-
-* Second optimization iteration
+*** Updates description
 
 To increase even further the performance, I also decided to re-implement the Boyer-Moore-Horspool algorithm using [[https://cython.org/][Cython]], which is a superset of Python that allows to write C-like code and compile it to C for better performance.
 
-/Observation/: The comparison between the Cython and the pure python implementation may not be considered fair, in the sense that the profilation of the cython code is done only running the pre-compiled code.
-For small projects like this where the overhall execution time is very low, the compilation time is not neglgible, just to have a rought idea, using the ~time~ command, we can see that the compilation time is around 0.9 seconds, which is not negligible for a small project like this, but it is still very low compared to the execution time of the code itself. However, I ignored this time in the profilation, since it is not part of the code execution but rather a one-time setup cost.
+#+begin_src python
+try:
+    from utils.search_cython import is_pattern_in_line_cy
+    CYTHON_AVAILABLE = True
+    static_logger.info("✓ Cython module loaded successfully. Using C-compiled functions")
+except ImportError as e:
+    static_logger.warning("✗ Cython module not available. Using pure Python implementation.")
+    static_logger.warning("Compile first with: python utils/compile.py build_ext --inplace")
+    CYTHON_AVAILABLE = False
+#+end_src
+
+#+begin_src python
+    pattern_func = is_pattern_in_line_cy if CYTHON_AVAILABLE else is_pattern_in_line
+#+end_src
+
+*** Profilation results
+
+- *Execution time*: /87ms/ (~2x faster than the previous implementation, ~14x faster than the naive implementation)
+- *Most time-consuming instruction*:
+  * ~is_pattern_in_line_cy~: 73ms (~84% of the overall time)
+
+*Observation*: The comparison between the Cython and the pure python implementation may not be considered fair, in the sense that the profilation of the cython code is done only running the pre-compiled code.
+Just to have an rought idea, I have used ~time~ to see that the compilation took almost 0.9s:
 
 #+begin_src bash
     time  pixi run python utils/compile.py build_ext --inplace
@@ -250,9 +229,6 @@ For small projects like this where the overhall execution time is very low, the 
   sys	0m0.085s
 #+end_src
 
+Hovever, I chosed to not include this in the profiling result, since compilation is not part of the proper execution time but rather a one-time setup cost.
 
-** Profilation results:
-
-Analizing the Scalene report, we can se that the execution time is now 87ms, which menas that compiling the code has doubled the performace of the same code, arriving at a 14.6x speedup compared to the naive implementation.
-
-Almost the whole time is spent in the ~pattern_func~ function, which in this setup is the compiled one. The time spent is 73ms, the 84% of the whole time, which is a great result since that is the core of the algorithm. This means that all the remaining part of the code is almost negligible and, most important, does not introduce any significant slowdown.
+The cython implementation is significantly faster than the pure python, as expected. Almost the whole time is spent in the ~pattern_func~ function, which in this setup is the compiled one. The time spent is 73ms, the 84% of the whole time, which is a great result since that is the core of the algorithm. This means that all the remaining part of the code is almost negligible and, most important, does not introduce any significant slowdown.
