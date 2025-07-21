@@ -12,17 +12,16 @@ cdef bint boyer_moore_horspool_cy(str line, str pattern):
     if pattern_len > line_len:
         return False
 
-    # Costruisci la tabella di salto per i caratteri "cattivi"
+    #skip table for bad charachters
     for i in range(pattern_len - 1):
         skip_table[pattern[i]] = pattern_len - 1 - i
 
-    # Ricerca effettiva
     i = pattern_len - 1
     while i < line_len:
         j = pattern_len - 1
         k = i
 
-        # Confronta dal fondo
+        # comparison starting from the end
         while j >= 0 and line[k] == pattern[j]:
             j -= 1
             k -= 1
