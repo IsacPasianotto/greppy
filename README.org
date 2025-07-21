@@ -16,7 +16,7 @@ The only restriction about the input file is that it must be a text file, conver
 
 To ensure compatibility, the code has been distributed with the [[https://pixi.sh/latest/][pixi]] package manager. Having the ~pixi.toml~ and ~pixi.lock~ files is enought to reproduce an working environment to run the code.
 
-To run the code, assuming that ~pixi~ is already installed, you can alternatively spawn a shell wilt ~pixi shell~ or run the script directly with ~pixi run~:
+To run the code, assuming that ~pixi~ is already installed, you can alternatively spawn a shell with ~pixi shell~ or run the script directly with ~pixi run~:
 
 #+begin_src bash
   pixi shell
@@ -73,6 +73,8 @@ The profiling results are obtained  by running the following:
       "Virgilio" \
       "This will not be found" 2> profiling/${SETTING}_perf
 #+end_src
+
+To visualize a scalene report stored as a json, its enought to run ~pixi run python -m scalene --viewer~ and load the json file.
 
 * Implementation logbook
 
